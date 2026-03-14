@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { TripSidebar } from "@/components/layout/TripSidebar";
-import { FlightSearchForm } from "./FlightSearchForm";
+import { FlightSearchForm } from "@/components/flights/FlightSearchForm";
 
 export const dynamic = "force-dynamic";
 
