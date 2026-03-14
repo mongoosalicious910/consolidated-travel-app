@@ -1,239 +1,149 @@
-# TRVL — Travel Planning That Gives Back Time
+# TRVL — AI-Powered Collaborative Travel Planning
 
-A collaborative travel planning app that consolidates flights, accommodations, budgets, food, and maps into one shareable itinerary.
+> Plan trips together, not in 47 open tabs.
 
-## Stack
+TRVL consolidates flights, itineraries, budgets, and sharing into one app — with AI that can build entire trips from a prompt or parse your booking emails automatically.
 
-| Layer        | Tech                  | Why                                      |
-| ------------ | --------------------- | ---------------------------------------- |
-| Framework    | Next.js 14 (App Router) | Fullstack in one repo, file-based routing |
-| Database     | Supabase (Postgres)   | Instant backend, auth, real-time sync    |
-| Styling      | Tailwind CSS          | Fast, consistent, no CSS conflicts       |
-| Maps         | Mapbox via react-map-gl | Strava-style route visualization        |
-| Charts       | Recharts              | Budget tracking visualizations           |
-| Calendar     | Custom + date-fns     | Lightweight calendar view                |
-| Deployment   | Vercel                | One-click deploy, edge functions         |
+**Live Demo:** [trvl-iota.vercel.app](https://trvl-iota.vercel.app)
+
+**Demo Account:**
+| | |
+|---|---|
+| **Email** | `demo@trvl.app` |
+| **Password** | `demo1234` |
+
+---
+
+## The Problem
+
+Planning a group trip means juggling Google Docs, spreadsheets, Venmo threads, screenshot dumps, and 47 browser tabs. Nobody knows what's booked, what's suggested, or who's over budget.
+
+## Our Solution
+
+A single collaborative workspace for every trip, powered by AI:
+
+- **AI Trip Builder** — Describe your trip ("5 days in Tokyo, food-heavy, $2500 budget") and get a full day-by-day itinerary generated instantly
+- **Smart Email Import** — Paste a booking confirmation email and AI extracts the hotel, flight, or activity into your itinerary automatically
+- **AI Budget Analysis** — One-click spending analysis with actionable tips ("You've spent 60% of your budget on hotels — consider hostels for the last 2 nights")
+- **Real-time Collaboration** — Invite friends as editors or viewers with role-based permissions
+- **Flight Search** — Compare flights directly in the app
+- **Shareable Links** — Generate public read-only links for anyone to view the itinerary
+
+---
+
+## Key Features
+
+### AI-Powered Planning
+| Feature | What it does |
+|---|---|
+| **Trip Builder** | Generates a complete multi-day itinerary from a natural language prompt |
+| **Email Import** | Parses booking confirmation emails into structured itinerary items |
+| **Budget Analyzer** | Analyzes spending patterns and gives personalized saving tips |
+
+### Collaboration & Sharing
+| Feature | What it does |
+|---|---|
+| **Role-based access** | Owner, editor, and viewer roles enforced at API and UI level |
+| **Email invites** | Invite collaborators by email with role selection |
+| **Public share links** | Generate expirable read-only links for non-users |
+
+### Trip Management
+| Feature | What it does |
+|---|---|
+| **Day-by-day itinerary** | Organized timeline with drag-and-drop items |
+| **Inline editing** | Click any field to edit — budget, items, expenses |
+| **Category breakdown** | Expandable spending categories showing each item |
+| **Flight comparison** | Search and compare flights by route and date |
+| **Expense tracking** | Add manual expenses, auto-tracks booked item costs |
+
+---
+
+## Tech Stack
+
+| Layer | Tech | Why |
+|---|---|---|
+| **Framework** | Next.js 16 (App Router) | Fullstack React with server components, API routes, middleware |
+| **Database** | Supabase (Postgres) | Auth, row-level security, instant REST API |
+| **AI** | OpenAI GPT-4.1 | Structured JSON output for reliable itinerary generation |
+| **Styling** | Tailwind CSS | Rapid UI development with consistent design tokens |
+| **Auth** | Supabase Auth + middleware | Session-based auth with protected routes |
+| **Deployment** | Vercel | Zero-config Next.js hosting with edge functions |
+
+---
+
+## Architecture Highlights
+
+- **Server Components + API Routes** — Server components for initial data fetching, API routes for mutations. No client-side Supabase credentials for writes.
+- **Admin Client Pattern** — A `supabase-admin` client using the service role key bypasses RLS for server-side operations, while the browser client respects row-level security.
+- **Role Enforcement at Two Layers** — Every write API route checks the user's trip role (owner/editor/viewer). The UI also hides edit controls for viewers, but the API is the source of truth.
+- **AI with Structured Output** — `askAIJSON<T>()` uses OpenAI's JSON mode to return typed, parseable responses — no fragile regex or markdown parsing.
+- **Middleware Auth Guard** — `middleware.ts` redirects unauthenticated users away from protected routes before any page code runs.
+
+---
 
 ## Quick Start
 
 ```bash
-# 1. Clone & install
-git clone <your-repo-url>
-cd trvl-app
+git clone https://github.com/momo0222/trvl.git
+cd trvl
 npm install
 
-# 2. Set up Supabase
-#    - Create a project at https://supabase.com
-#    - Run the SQL in /supabase/schema.sql in the SQL editor
-#    - Copy your keys into .env.local
+# Set up Supabase: create a project, run supabase/schema.sql in the SQL editor
 
-# 3. Copy env template
 cp .env.example .env.local
-# Fill in your Supabase URL + anon key
+# Fill in your keys (see below)
 
-# 4. Run dev server
 npm run dev
 ```
 
-## Environment Variables
+### Environment Variables
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-NEXT_PUBLIC_MAPBOX_TOKEN=your-mapbox-token
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 OPENAI_API_KEY=your-openai-key
 ```
 
-## AI Endpoints (Person 1)
-
-### Smart Import — Email Parser
-
-Route:
-
-`POST /api/ai/import-email`
-
-Example request:
-
-```json
-{
-  "trip_id": "0c3f2d2c-8c4d-4c8f-9b5a-2b7cc7f1a9c1",
-  "email_subject": "Your reservation is confirmed — Hotel Example",
-  "email_body": "Thanks for booking! Check-in: Apr 12, 2026. Check-out: Apr 15, 2026. Hotel Example, Shibuya. Confirmation: ABC123.",
-  "default_currency": "USD"
-}
-```
-
-Example response:
-
-```json
-{
-  "created": 1,
-  "items": [
-    {
-      "id": "...",
-      "day_id": "...",
-      "trip_id": "0c3f2d2c-8c4d-4c8f-9b5a-2b7cc7f1a9c1",
-      "type": "hotel",
-      "status": "confirmed",
-      "title": "Hotel Example",
-      "detail": "Check-in Apr 12, 2026; check-out Apr 15, 2026",
-      "time": null,
-      "end_time": null,
-      "location_name": "Shibuya",
-      "latitude": null,
-      "longitude": null,
-      "booking_ref": "ABC123",
-      "booking_url": null,
-      "cost": 0,
-      "currency": "USD",
-      "notes": null,
-      "added_by": "...",
-      "sort_order": 0,
-      "created_at": "...",
-      "updated_at": "..."
-    }
-  ]
-}
-```
-
-### Trip Builder — Generate Trip From Prompt
-
-Route:
-
-`POST /api/ai/trip-builder`
-
-Example request:
-
-```json
-{
-  "name": "Tokyo Spring Break",
-  "destination": "Tokyo, Japan",
-  "start_date": "2026-04-12",
-  "end_date": "2026-04-16",
-  "currency": "USD",
-  "budget": 2500,
-  "travelers": 2,
-  "preferences": "Food-heavy, neighborhoods: Shibuya, Asakusa, Ginza; include 1 museum and 1 day trip. Avoid early mornings."
-}
-```
-
-Example response (shape):
-
-```json
-{
-  "trip": { "id": "...", "name": "Tokyo Spring Break", "destination": "Tokyo, Japan", "start_date": "2026-04-12", "end_date": "2026-04-16" },
-  "days": [ { "id": "...", "trip_id": "...", "date": "2026-04-12", "label": "Arrival + Shibuya" } ],
-  "items": [ { "id": "...", "day_id": "...", "type": "activity", "status": "suggestion", "title": "Shibuya Crossing + Hachiko" } ]
-}
-```
-
-## Team Work Split (3-hour sprint)
-
-### Person 1 — Core & Itinerary
-- `app/(auth)/*` — Login/signup pages
-- `app/trips/*` — Trip CRUD, itinerary day/item management
-- `lib/supabase.ts` — Client setup
-- `lib/types.ts` — Shared TypeScript types
-- Branch: `feat/core-itinerary`
-
-### Person 2 — Visuals & Budget
-- `app/trips/[id]/map/*` — Mapbox route visualization
-- `app/trips/[id]/calendar/*` — Calendar view
-- `app/trips/[id]/budget/*` — Budget tracker + charts
-- `components/ui/*` — Shared UI components
-- Branch: `feat/visuals-budget`
-
-### Person 3 — Social & Search
-- `app/trips/[id]/share/*` — Sharing, invites, real-time collab
-- `app/trips/[id]/food/*` — Restaurant discovery
-- `app/api/flights/*` — Flight comparison API routes
-- `app/api/places/*` — Place search API routes
-- Branch: `feat/social-search`
-
-## Project Structure
-
-```
-trvl-app/
-├── app/
-│   ├── layout.tsx              # Root layout + fonts + providers
-│   ├── page.tsx                # Landing / redirect to dashboard
-│   ├── globals.css             # Tailwind + custom styles
-│   ├── (auth)/
-│   │   ├── login/page.tsx
-│   │   └── signup/page.tsx
-│   ├── dashboard/
-│   │   └── page.tsx            # All trips overview
-│   ├── trips/
-│   │   └── [id]/
-│   │       ├── page.tsx        # Itinerary view (default)
-│   │       ├── map/page.tsx    # Map visualization
-│   │       ├── calendar/page.tsx
-│   │       ├── budget/page.tsx
-│   │       ├── food/page.tsx
-│   │       └── share/page.tsx
-│   └── api/
-│       ├── flights/route.ts    # Flight comparison endpoint
-│       └── places/route.ts     # Restaurant/place search
-├── components/
-│   ├── ui/                     # Shared primitives (Button, Card, Modal, etc.)
-│   ├── trip/                   # Trip-specific components
-│   │   ├── TripCard.tsx
-│   │   ├── ItineraryItem.tsx
-│   │   ├── DayTabs.tsx
-│   │   └── AddItemForm.tsx
-│   ├── map/
-│   │   └── TripMap.tsx
-│   ├── budget/
-│   │   ├── BudgetChart.tsx
-│   │   └── ExpenseRow.tsx
-│   ├── food/
-│   │   └── RestaurantCard.tsx
-│   ├── share/
-│   │   ├── ShareModal.tsx
-│   │   └── CollaboratorBadge.tsx
-│   └── layout/
-│       ├── Navbar.tsx
-│       ├── TripSidebar.tsx
-│       └── MobileNav.tsx
-├── lib/
-│   ├── supabase.ts             # Supabase client (browser)
-│   ├── supabase-server.ts      # Supabase client (server components)
-│   ├── types.ts                # Shared TypeScript types
-│   └── utils.ts                # Helpers (date formatting, currency, etc.)
-├── supabase/
-│   └── schema.sql              # Full database schema
-├── public/
-│   └── ...
-├── .env.example
-├── .gitignore
-├── next.config.js
-├── tailwind.config.ts
-├── tsconfig.json
-└── package.json
-```
+---
 
 ## Database Schema
 
-See `supabase/schema.sql` for the full schema. Key tables:
-- `profiles` — User profiles (extends Supabase auth)
-- `trips` — Core trip info (destination, dates, budget)
-- `trip_members` — Who's on each trip (owner, editor, viewer)
-- `days` — Each day of a trip
-- `itinerary_items` — Flights, hotels, activities, restaurants
-- `expenses` — Budget tracking per item
-- `shared_links` — Public share links
+Postgres via Supabase with row-level security enabled on all tables:
 
-## Git Workflow
+| Table | Purpose |
+|---|---|
+| `profiles` | User profiles (extends Supabase auth) |
+| `trips` | Trip metadata — destination, dates, budget, currency |
+| `trip_members` | Membership with roles: `owner`, `editor`, `viewer` |
+| `days` | Individual days within a trip |
+| `itinerary_items` | Flights, hotels, activities, restaurants with cost tracking |
+| `expenses` | Manual expense entries per trip |
+| `shared_links` | Public share links with optional expiration |
 
-```bash
-# Create your feature branch
-git checkout -b feat/your-feature
+Full schema: [`supabase/schema.sql`](./supabase/schema.sql)
 
-# Work on your stuff...
-git add .
-git commit -m "feat: add itinerary CRUD"
+---
 
-# Push and PR
-git push origin feat/your-feature
-# Open PR → merge to main
-```
+## API Routes
+
+| Route | Method | Description |
+|---|---|---|
+| `/api/trips` | GET, POST | List/create trips |
+| `/api/trips/[id]` | GET, PATCH, DELETE | Trip CRUD |
+| `/api/trips/[id]/days` | GET, POST | Day management |
+| `/api/trips/[id]/expenses` | GET, POST | Expense tracking |
+| `/api/trips/[id]/members` | GET, POST | Member invites |
+| `/api/trips/[id]/share-link` | GET, POST, PATCH, DELETE | Share link management |
+| `/api/days/[dayId]/items` | GET, POST | Itinerary items per day |
+| `/api/items/[id]` | PATCH, DELETE | Edit/delete items |
+| `/api/flights` | GET | Flight search |
+| `/api/ai/trip-builder` | POST | AI full trip generation |
+| `/api/ai/import-email` | POST | AI booking email parser |
+| `/api/ai/budget-analyze` | POST | AI spending analysis |
+
+---
+
+## Team
+
+Built during a hackathon sprint by a team of 3.
