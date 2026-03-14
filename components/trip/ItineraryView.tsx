@@ -12,9 +12,10 @@ type TripWithDays = Trip & { days?: (Day & { items?: ItineraryItem[] })[] };
 
 interface Props {
   trip: TripWithDays;
+  canEdit?: boolean;
 }
 
-export function ItineraryView({ trip }: Props) {
+export function ItineraryView({ trip, canEdit = true }: Props) {
   const days = trip.days ?? [];
   const [activeIndex, setActiveIndex] = useState(0);
   const activeDay = days[activeIndex];
@@ -47,11 +48,13 @@ export function ItineraryView({ trip }: Props) {
       </div>
 
       {/* AI Tools */}
-      <SmartImportPanel
-        tripId={trip.id}
-        currency={trip.currency ?? "USD"}
-        onImported={() => window.location.reload()}
-      />
+      {canEdit && (
+        <SmartImportPanel
+          tripId={trip.id}
+          currency={trip.currency ?? "USD"}
+          onImported={() => window.location.reload()}
+        />
+      )}
 
       <div className="flex flex-col gap-3 mt-4">
         {items.length === 0 && activeDay && (
@@ -61,19 +64,21 @@ export function ItineraryView({ trip }: Props) {
         )}
 
         {items.map((item) => (
-          <ItineraryItemCard key={item.id} item={item} onClick={() => setEditingItem(item)} />
+          <ItineraryItemCard key={item.id} item={item} onClick={canEdit ? () => setEditingItem(item) : undefined} />
         ))}
 
-        <button
-          onClick={() => setShowAdd(true)}
-          disabled={!activeDay}
-          className="w-full py-4 rounded-2xl border-2 border-dashed border-sand-200 text-sand-400 text-sm font-medium hover:border-ocean hover:text-ocean transition-colors disabled:opacity-60"
-        >
-          + Add flight, hotel, activity, or restaurant
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setShowAdd(true)}
+            disabled={!activeDay}
+            className="w-full py-4 rounded-2xl border-2 border-dashed border-sand-200 text-sand-400 text-sm font-medium hover:border-ocean hover:text-ocean transition-colors disabled:opacity-60"
+          >
+            + Add flight, hotel, activity, or restaurant
+          </button>
+        )}
       </div>
 
-      {showAdd && activeDay && (
+      {canEdit && showAdd && activeDay && (
         <AddItemModal
           tripId={trip.id}
           dayId={activeDay.id}
@@ -84,7 +89,7 @@ export function ItineraryView({ trip }: Props) {
         />
       )}
 
-      {editingItem && (
+      {canEdit && editingItem && (
         <EditItemModal
           item={editingItem}
           currency={trip.currency ?? "USD"}

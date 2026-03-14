@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { createAdminSupabase } from "@/lib/supabase-admin";
+import { getTripRole, canEdit } from "@/lib/check-role";
 
 const createItemSchema = z.object({
   trip_id: z.string().uuid(),
@@ -67,6 +68,11 @@ export async function POST(
 
   const userId = userData.user.id;
   const b = parsed.data;
+
+  const role = await getTripRole(b.trip_id, userId);
+  if (!canEdit(role)) {
+    return NextResponse.json({ error: "Viewers cannot add items" }, { status: 403 });
+  }
 
   const admin = createAdminSupabase();
   const { data: item, error } = await admin

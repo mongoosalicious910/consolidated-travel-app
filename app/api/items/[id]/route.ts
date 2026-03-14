@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { createAdminSupabase } from "@/lib/supabase-admin";
+import { getTripRole, canEdit } from "@/lib/check-role";
 
 const updateItemSchema = z.object({
   type: z.enum(["flight", "hotel", "transport", "activity", "restaurant"]).optional(),
@@ -39,6 +40,13 @@ export async function PATCH(
   }
 
   const admin = createAdminSupabase();
+
+  // Look up trip_id for role check
+  const { data: existing } = await admin.from("itinerary_items").select("trip_id").eq("id", params.id).single();
+  if (!existing) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+  const role = await getTripRole(existing.trip_id, userData.user.id);
+  if (!canEdit(role)) return NextResponse.json({ error: "Viewers cannot edit items" }, { status: 403 });
+
   const { data: item, error } = await admin
     .from("itinerary_items")
     .update({
@@ -68,6 +76,13 @@ export async function DELETE(
   }
 
   const admin = createAdminSupabase();
+
+  // Look up trip_id for role check
+  const { data: existing } = await admin.from("itinerary_items").select("trip_id").eq("id", params.id).single();
+  if (!existing) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+  const role = await getTripRole(existing.trip_id, userData.user.id);
+  if (!canEdit(role)) return NextResponse.json({ error: "Viewers cannot delete items" }, { status: 403 });
+
   const { error } = await admin
     .from("itinerary_items")
     .delete()

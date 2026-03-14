@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { createAdminSupabase } from "@/lib/supabase-admin";
+import { getTripRole, canEdit } from "@/lib/check-role";
 
 const updateTripSchema = z.object({
   name: z.string().min(1).optional(),
@@ -60,6 +61,9 @@ export async function PATCH(
   }
 
   const updates = parsed.data;
+  const role = await getTripRole(params.id, userData.user.id);
+  if (!canEdit(role)) return NextResponse.json({ error: "Viewers cannot edit trips" }, { status: 403 });
+
   const admin = createAdminSupabase();
   const { data: trip, error } = await admin
     .from("trips")
@@ -88,6 +92,9 @@ export async function DELETE(
   if (!userData.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const role = await getTripRole(params.id, userData.user.id);
+  if (role !== "owner") return NextResponse.json({ error: "Only the owner can delete a trip" }, { status: 403 });
 
   const admin = createAdminSupabase();
   const { error } = await admin.from("trips").delete().eq("id", params.id);

@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { createAdminSupabase } from "@/lib/supabase-admin";
-import { getTripRole, canEdit } from "@/lib/check-role";
 
-const createDaySchema = z.object({
-  date: z.string().min(1),
-  label: z.string().nullable().optional(),
-  sort_order: z.number().int().optional(),
+const inviteSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(["editor", "viewer"]).default("editor"),
 });
 
 export async function GET(
@@ -22,17 +20,17 @@ export async function GET(
   }
 
   const admin = createAdminSupabase();
-  const { data: days, error } = await admin
-    .from("days")
-    .select("*, items:itinerary_items(*)")
+  const { data: members, error } = await admin
+    .from("trip_members")
+    .select("*, profile:profiles!user_id(id, full_name, avatar_url, email)")
     .eq("trip_id", params.id)
-    .order("sort_order", { ascending: true });
+    .order("joined_at", { ascending: true });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ days: days ?? [] });
+  return NextResponse.json({ members: members ?? [] });
 }
 
 export async function POST(
@@ -47,29 +45,54 @@ export async function POST(
   }
 
   const json = await request.json().catch(() => null);
-  const parsed = createDaySchema.safeParse(json);
+  const parsed = inviteSchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const role = await getTripRole(params.id, userData.user.id);
-  if (!canEdit(role)) return NextResponse.json({ error: "Viewers cannot add days" }, { status: 403 });
-
   const admin = createAdminSupabase();
-  const { data: day, error } = await admin
-    .from("days")
+
+  // Look up user by email in profiles
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, full_name, email")
+    .eq("email", parsed.data.email)
+    .single();
+
+  if (!profile) {
+    return NextResponse.json(
+      { error: "No account found with that email. They need to sign up first." },
+      { status: 404 }
+    );
+  }
+
+  // Check if already a member
+  const { data: existing } = await admin
+    .from("trip_members")
+    .select("id")
+    .eq("trip_id", params.id)
+    .eq("user_id", profile.id)
+    .single();
+
+  if (existing) {
+    return NextResponse.json({ error: "This person is already a member of this trip." }, { status: 409 });
+  }
+
+  // Add member
+  const { data: member, error } = await admin
+    .from("trip_members")
     .insert({
       trip_id: params.id,
-      date: parsed.data.date,
-      label: parsed.data.label ?? null,
-      sort_order: parsed.data.sort_order ?? 0,
+      user_id: profile.id,
+      role: parsed.data.role,
+      invited_by: userData.user.id,
     })
-    .select("*")
+    .select("*, profile:profiles!user_id(id, full_name, avatar_url, email)")
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ day }, { status: 201 });
+  return NextResponse.json({ member }, { status: 201 });
 }

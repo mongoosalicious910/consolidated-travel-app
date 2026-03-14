@@ -3,6 +3,7 @@ import { TripSidebar } from "@/components/layout/TripSidebar";
 import { ItineraryView } from "@/components/trip/ItineraryView";
 import { createServerSupabase } from "@/lib/supabase-server";
 import { createAdminSupabase } from "@/lib/supabase-admin";
+import { getTripRole } from "@/lib/check-role";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,8 @@ export default async function TripItineraryPage({ params: paramsPromise }: Props
   }
 
   const admin = createAdminSupabase();
+  const userRole = await getTripRole(params.id, user.id);
+
   const { data: trip, error } = await admin
     .from("trips")
     .select("*, days(*, items:itinerary_items(*))")
@@ -65,7 +68,7 @@ export default async function TripItineraryPage({ params: paramsPromise }: Props
           </h1>
           <p className="text-sand-400 text-sm mb-8">{trip.destination}</p>
 
-          <ItineraryView trip={trip as any} />
+          <ItineraryView trip={trip as any} canEdit={userRole === "owner" || userRole === "editor"} />
         </main>
       </div>
     </>
