@@ -129,3 +129,76 @@ export const STATUS_CONFIG: Record<ItemStatus, { bgClass: string; textClass: str
   suggestion:{ bgClass: "bg-amber-50",    textClass: "text-amber-700",   label: "Suggestion" },
   cancelled: { bgClass: "bg-gray-100",    textClass: "text-gray-500",    label: "Cancelled" },
 };
+
+/*
+  FlightOffer represents a single flight returned from our flight search API.
+
+  IMPORTANT:
+  This does NOT represent a booked flight yet.
+  It is only used for "flight discovery" when users search for flights.
+
+  Later in the project, if a user chooses a flight, we may convert
+  it into an ItineraryItem of type "flight".
+*/
+
+export interface FlightOffer {
+  /*
+    Unique identifier for the flight result.
+
+    This usually comes from the external flight API
+    (Amadeus / SerpAPI / etc).
+
+    For now our mock API just uses simple string ids.
+  */
+  id: string;
+
+  /*
+    Airline name or code.
+  */
+  airline: string;
+
+  /*
+    Airline flight number.
+  */
+  flightNumber: string;
+
+  /*
+    Airport codes.
+  */
+  origin: string;
+  destination: string;
+
+  /*
+    Departure and arrival times.
+
+    These are currently returned as formatted strings
+    from the API for simplicity.
+
+    Later we could convert them into ISO timestamps
+    if we want more precise calendar integration.
+  */
+  departTime: string;
+  arriveTime: string;
+
+  /*
+    Total flight duration.
+    Example:
+    "13h 30m"
+  */
+  duration: string;
+
+  /*
+    Number of stops.
+  */
+  stops: number;
+
+  /*
+    Price of the ticket.
+  */
+  price: number;
+
+  /*
+    Currency of the ticket.
+  */
+  currency: string;
+}
