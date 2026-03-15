@@ -9,7 +9,7 @@ TRVL consolidates flights, itineraries, budgets, and sharing into one app — wi
 **Demo Account:**
 | | |
 |---|---|
-| **Email** | `demo@trvl.app` |
+| **Email** | `demo@triv.app` |
 | **Password** | `helloworld123` |
 
 ---
